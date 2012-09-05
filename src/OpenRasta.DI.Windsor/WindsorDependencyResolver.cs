@@ -13,7 +13,9 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+
 using Castle.Core;
+using Castle.Core.Logging;
 using Castle.MicroKernel;
 using Castle.MicroKernel.ComponentActivator;
 using Castle.MicroKernel.Context;
@@ -21,8 +23,9 @@ using Castle.MicroKernel.Registration;
 using Castle.Windsor;
 using OpenRasta.DI.Internal;
 using OpenRasta.Pipeline;
+
 #if CASTLE_20
-using Castle.MicroKernel.Registration;
+
 #endif
 
 namespace OpenRasta.DI.Windsor
@@ -73,7 +76,7 @@ namespace OpenRasta.DI.Windsor
             foreach (var handler in AvailableHandlers(handlers))
                 try
                 {
-                    resolved.Add((TService) _windsorContainer.Resolve(handler.ComponentModel.Name, handler.ComponentModel.Service));
+                    resolved.Add((TService) _windsorContainer.Resolve(handler.ComponentModel.Name, handler.ComponentModel.Implementation));
                 }
                 catch
                 {
@@ -87,8 +90,9 @@ namespace OpenRasta.DI.Windsor
             string componentName = Guid.NewGuid().ToString();
             if (lifetime != DependencyLifetime.PerRequest)
             {
-                _windsorContainer.AddComponentLifeStyle(componentName, dependent, concrete, 
-                                                        ConvertLifestyles.ToLifestyleType(lifetime));
+                _windsorContainer.Register(
+            		Component.For(dependent).Named(componentName).ImplementedBy(concrete).LifeStyle.Is(ConvertLifestyles.ToLifestyleType(lifetime))
+            	);
             }
             else
             {
@@ -100,6 +104,7 @@ namespace OpenRasta.DI.Windsor
         protected override void AddDependencyInstanceCore(Type serviceType, object instance, DependencyLifetime lifetime)
         {
             string key = Guid.NewGuid().ToString();
+            Debug.WriteLine(string.Format("Adding Dependency Instance. {0}\t{1}.",key,serviceType.Name));
             if (lifetime == DependencyLifetime.PerRequest)
             {
                 // try to see if we have a registration already
@@ -119,7 +124,7 @@ namespace OpenRasta.DI.Windsor
                 }
                 else
                 {
-                    var component = new ComponentModel(key, serviceType, instance.GetType());
+                	var component = new ComponentModel(new ComponentName(key,true),new Type[] { serviceType }, instance.GetType(),null);
                     var customLifestyle = typeof (ContextStoreLifetime);
                     component.LifestyleType = LifestyleType.Custom;
                     component.CustomLifestyle = customLifestyle;
@@ -133,7 +138,8 @@ namespace OpenRasta.DI.Windsor
             }
             else if (lifetime == DependencyLifetime.Singleton)
             {
-                _windsorContainer.Kernel.AddComponentInstance(key, serviceType, instance);
+            	_windsorContainer.Register(Component.For(serviceType).Named(key).Instance(instance));
+            	//_windsorContainer.Kernel.AddComponentInstance(key, serviceType, instance);
             }
         }
 

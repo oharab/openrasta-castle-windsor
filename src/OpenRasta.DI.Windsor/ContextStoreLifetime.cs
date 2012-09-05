@@ -16,12 +16,12 @@ namespace OpenRasta.DI.Windsor
             base.Release(instance);
             GetStore()[key] = null;
         }
-
-        public override object Resolve(CreationContext context)
-        {
+        
+		public override object Resolve(CreationContext context, IReleasePolicy releasePolicy)
+		{
             var store = GetStore();
 
-            var instance = base.Resolve(context);
+            var instance = base.Resolve(context,releasePolicy);
 
             if (instance == null)
             {
